@@ -204,6 +204,35 @@ async function updateChatOnMessagesQuota ({ data, device }) {
   ])
 }
 
+// Helper functions to check contact category
+function isFamily(phone, config) {
+  return config.contactCategories.family.includes(phone) || config.contactCategories.family.includes(phone.slice(1));
+}
+
+function isCloseFriend(phone, config) {
+  return config.contactCategories.closeFriends.includes(phone) || config.contactCategories.closeFriends.includes(phone.slice(1));
+}
+
+async function handleMenuResponse(body, reply) {
+  switch (body) {
+    case '1':
+      await reply({ message: "Please leave your message and I'll get back to you." });
+      break;
+    case '2':
+      await reply({ message: "What would be the best time to call you back?" });
+      break;
+    case '3':
+      await reply({ message: "Our business hours are:\nMonday-Friday: 9 AM - 5 PM\nSaturday: 10 AM - 2 PM\nSunday: Closed" });
+      break;
+    case '4':
+      await reply({ message: "Thank you for contacting us. Have a great day!" });
+      break;
+    default:
+      return false;
+  }
+  return true;
+}
+
 // Process message received from the user on every new inbound webhook event
 export async function processMessage ({ data, device } = {}) {
   // Can reply to this message?
@@ -212,6 +241,18 @@ export async function processMessage ({ data, device } = {}) {
   }
 
   const { chat } = data
+
+  // Check contact category
+  if (isFamily(chat.fromNumber, config)) {
+    return console.log('[info] Skip message - sender is in family category:', chat.fromNumber);
+  }
+
+  // Handle close friends category
+  if (isCloseFriend(chat.fromNumber, config)) {
+    const reply = replyMessage({ data, device });
+    await reply({ message: config.categoryMessages.closeFriends });
+    return;
+  }
 
   // Chat has enough messages quota
   if (!hasChatMessagesQuota(chat)) {
@@ -223,6 +264,21 @@ export async function processMessage ({ data, device } = {}) {
   if (hasChatMetadataQuotaExceeded(chat)) {
     actions.updateChatMetadata({ data, device, metadata: [{ key: 'bot:chatgpt:status', value: 'active' }] })
       .catch(err => console.error('[error] failed to update chat metadata:', data.chat.id, err.message))
+  }
+
+  const reply = replyMessage({ data, device });
+  const body = data?.body?.trim();
+
+  // Handle menu responses for other contacts
+  if (body && /^[1-4]$/.test(body)) {
+    const handled = await handleMenuResponse(body, reply);
+    if (handled) return;
+  }
+
+  // Show menu for first message or invalid option from other contacts
+  if (!isFamily(chat.fromNumber, config) && !isCloseFriend(chat.fromNumber, config)) {
+    await reply({ message: config.categoryMessages.others });
+    return;
   }
 
   // If audio message, transcribe it to text

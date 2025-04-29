@@ -1,155 +1,140 @@
-import fs from 'fs'
-import ngrok from 'ngrok'
-import nodemon from 'nodemon'
+import { Client, LocalAuth } from 'whatsapp-web.js'
+import qrcode from 'qrcode-terminal'
+import OpenAI from 'openai'
 import config from './config.js'
-import server from './server.js'
-import * as actions from './actions.js'
-const { exit } = actions
+import * as store from './store.js'
 
-// Function to create a Ngrok tunnel and register the webhook dynamically
-async function createTunnel () {
-  let retries = 3
+// Initialize OpenAI client
+const ai = new OpenAI({ apiKey: config.openaiKey })
 
-  try {
-    await ngrok.upgradeConfig({ relocate: false })
-  } catch (err) {
-    console.error('[warning] Failed to upgrade Ngrok config:', err.message)
+// Initialize WhatsApp client
+const client = new Client({
+  authStrategy: new LocalAuth(),
+  puppeteer: {
+    args: ['--no-sandbox']
   }
-
-  while (retries) {
-    retries -= 1
-    try {
-      const tunnel = await ngrok.connect({
-        addr: config.port,
-        authtoken: config.ngrokToken,
-        path: () => config.ngrokPath
-      })
-      console.log(`Ngrok tunnel created: ${tunnel}`)
-      config.webhookUrl = tunnel
-      return tunnel
-    } catch (err) {
-      console.error('[error] Failed to create Ngrok tunnel:', err.message)
-      await ngrok.kill()
-      await new Promise(resolve => setTimeout(resolve, 1000))
-    }
-  }
-
-  throw new Error('Failed to create Ngrok tunnel')
-}
-
-// Development server using nodemon to restart the bot on file changes
-async function devServer () {
-  const tunnel = await createTunnel()
-
-  nodemon({
-    script: 'bot.js',
-    ext: 'js',
-    watch: ['*.js', 'src/**/*.js'],
-    exec: `WEBHOOK_URL=${tunnel} DEV=false npm run start`
-  }).on('restart', () => {
-    console.log('[info] Restarting bot after changes...')
-  }).on('quit', () => {
-    console.log('[info] Closing bot...')
-    ngrok.kill().then(() => process.exit(0))
-  })
-}
-
-const loadWhatsAppDevice = async () => {
-  try {
-    const device = await actions.loadDevice()
-    if (!device || device.status !== 'operative') {
-      return exit('No active WhatsApp numbers in your account. Please connect a WhatsApp number in your Wassenger account:\nhttps://app.wassenger.com/create')
-    }
-    return device
-  } catch (err) {
-    if (err.response?.status === 403) {
-      return exit('Unauthorized Wassenger API key: please make sure you are correctly setting the API token, obtain your API key here:\nhttps://app.wassenger.com/developers/apikeys')
-    }
-    if (err.response?.status === 404) {
-      return exit('No active WhatsApp numbers in your account. Please connect a WhatsApp number in your Wassenger account:\nhttps://app.wassenger.com/create')
-    }
-    return exit('Failed to load WhatsApp number:', err.message)
-  }
-}
-
-// Initialize chatbot server
-async function main () {
-  // API key must be provided
-  if (!config.apiKey || config.apiKey.length < 60) {
-    return exit('Please sign up in Wassenger and obtain your API key:\nhttps://app.wassenger.com/apikeys')
-  }
-
-  // OpenAI API key must be provided
-  if (!config.openaiKey || config.openaiKey.length < 45) {
-    return exit('Missing required OpenAI API key: please sign up for free and obtain your API key:\nhttps://platform.openai.com/account/api-keys')
-  }
-
-  // Create dev mode server with Ngrok tunnel and nodemon
-  if (process.env.DEV === 'true' && !config.production) {
-    return devServer()
-  }
-
-  // Find a WhatsApp number connected to the Wassenger API
-  const device = await loadWhatsAppDevice()
-  if (!device) {
-    return exit('No active WhatsApp numbers in your account. Please connect a WhatsApp number in your Wassenger account:\nhttps://app.wassenger.com/create')
-  }
-  if (device.session.status !== 'online') {
-    return exit(`WhatsApp number (${device.alias}) is not online. Please make sure the WhatsApp number in your Wassenger account is properly connected:\nhttps://app.wassenger.com/${device.id}/scan`)
-  }
-  if (device.billing.subscription.product !== 'io') {
-    return exit(`WhatsApp number plan (${device.alias}) does not support inbound messages. Please upgrade the plan here:\nhttps://app.wassenger.com/${device.id}/plan?product=io`)
-  }
-
-  // Create tmp folder
-  if (!fs.existsSync(config.tempPath)) {
-    fs.mkdirSync(config.tempPath)
-  }
-
-  // Pre-load device labels and team mebers
-  const [members] = await Promise.all([
-    actions.pullMembers(device),
-    actions.pullLabels(device)
-  ])
-
-  // Create labels if they don't exist
-  await actions.createLabels(device)
-
-  // Validate whitelisted and blacklisted members exist
-  await actions.validateMembers(members)
-
-  server.device = device
-  console.log('[info] Using WhatsApp connected number:', device.phone, device.alias, `(ID = ${device.id})`)
-
-  // Start server
-  await server.listen(config.port, () => {
-    console.log(`Server listening on port ${config.port}`)
-  })
-
-  if (config.production) {
-    console.log('[info] Validating webhook endpoint...')
-    if (!config.webhookUrl) {
-      return exit('Missing required environment variable: WEBHOOK_URL must be present in production mode')
-    }
-    const webhook = await actions.registerWebhook(config.webhookUrl, device)
-    if (!webhook) {
-      return exit(`Missing webhook active endpoint in production mode: please create a webhook endpoint that points to the chatbot server:\nhttps://app.wassenger.com/${device.id}/webhooks`)
-    }
-    console.log('[info] Using webhook endpoint in production mode:', webhook.url)
-  } else {
-    console.log('[info] Registering webhook tunnel...')
-    const tunnel = config.webhookUrl || await createTunnel()
-    const webhook = await actions.registerWebhook(tunnel, device)
-    if (!webhook) {
-      console.error('Failed to connect webhook. Please try again.')
-      await ngrok.kill()
-      return process.exit(1)
-    }
-  }
-
-  console.log('[info] Chatbot server ready and waiting for messages!')
-}
-
-main().catch(err => {
-  exit('Failed to start chatbot server:', err)
 })
+
+// Function to check contact category
+function isFamily(contact) {
+  const phone = contact.number || contact.id.user
+  return config.contactCategories.family.includes(phone) || config.contactCategories.family.includes(phone.slice(1))
+}
+
+function isCloseFriend(contact) {
+  const phone = contact.number || contact.id.user
+  return config.contactCategories.closeFriends.includes(phone) || config.contactCategories.closeFriends.includes(phone.slice(1))
+}
+
+// Handle menu responses
+async function handleMenuResponse(msg, body) {
+  switch (body) {
+    case '1':
+      await msg.reply("Please leave your message and I'll get back to you.")
+      break
+    case '2':
+      await msg.reply("What would be the best time to call you back?")
+      break
+    case '3':
+      await msg.reply("Our business hours are:\nMonday-Friday: 9 AM - 5 PM\nSaturday: 10 AM - 2 PM\nSunday: Closed")
+      break
+    case '4':
+      await msg.reply("Thank you for contacting us. Have a great day!")
+      break
+    default:
+      return false
+  }
+  return true
+}
+
+// Generate AI response
+async function generateAIResponse(messages) {
+  try {
+    const completion = await ai.chat.completions.create({
+      messages,
+      model: config.openaiModel,
+      max_tokens: config.limits.maxOutputTokens,
+      temperature: 0.7,
+    })
+
+    if (completion.choices?.length) {
+      return completion.choices[0].message.content
+    }
+  } catch (err) {
+    console.error('Error generating AI response:', err)
+  }
+  return config.unknownCommandMessage
+}
+
+// QR Code generation
+client.on('qr', (qr) => {
+  console.log('Scan this QR code in WhatsApp to log in:')
+  qrcode.generate(qr, { small: true })
+})
+
+// Ready event
+client.on('ready', () => {
+  console.log('WhatsApp bot is ready!')
+})
+
+// Handle incoming messages
+client.on('message', async (msg) => {
+  try {
+    const chat = await msg.getChat()
+    const contact = await msg.getContact()
+    
+    // Skip processing for groups
+    if (chat.isGroup) return
+
+    // Check contact category
+    if (isFamily(contact)) {
+      console.log('Skipping family member message:', contact.number)
+      return
+    }
+
+    if (isCloseFriend(contact)) {
+      await msg.reply(config.categoryMessages.closeFriends)
+      return
+    }
+
+    const body = msg.body.trim()
+
+    // Handle menu responses
+    if (/^[1-4]$/.test(body)) {
+      const handled = await handleMenuResponse(msg, body)
+      if (handled) return
+    }
+
+    // Show menu for first message or invalid option
+    if (!store.state[chat.id]) {
+      await msg.reply(config.categoryMessages.others)
+      store.state[chat.id] = { messagesCount: 0 }
+      return
+    }
+
+    // Increment message counter
+    store.state[chat.id].messagesCount = (store.state[chat.id].messagesCount || 0) + 1
+
+    // Check message limits
+    if (store.state[chat.id].messagesCount > config.limits.maxMessagesPerChat) {
+      await msg.reply("Message limit reached. Please start a new conversation.")
+      return
+    }
+
+    // Generate AI response
+    const messages = [
+      { role: 'system', content: config.botInstructions },
+      { role: 'user', content: body }
+    ]
+
+    const response = await generateAIResponse(messages)
+    await msg.reply(response)
+
+  } catch (err) {
+    console.error('Error processing message:', err)
+    await msg.reply(config.unknownCommandMessage)
+  }
+})
+
+// Initialize the client
+client.initialize()
