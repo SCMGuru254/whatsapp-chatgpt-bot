@@ -1,58 +1,71 @@
 import functions from './functions.js'
 const { env } = process
 
-// Required. Specify the OpenAI API key to be used
-// You can sign up for free here: https://platform.openai.com/signup
-// Obtain your API key here: https://platform.openai.com/account/api-keys
-const openaiKey = env.OPENAI_API_KEY || ''
+// AI model configuration
+const aiConfig = {
+  modelType: 'llama2',
+  modelPath: './models/llama-2-chat.gguf', // Path to smaller 1.1B model
+  temperature: 0.8, // Slightly higher temperature for more creative responses
+  maxLength: 500 // Reduced max length for faster responses
+}
 
-// Required. Set the OpenAI model to use
-const openaiModel = env.OPENAI_MODEL || 'gpt-4o'
-
-// Default message when the user sends an unknown message
+// Default messages
 const unknownCommandMessage = `I'm sorry, I was unable to understand your message. Can you please elaborate more?`
+const welcomeMessage = 'Hey there 👋 I am Maximus - Olive\'s AI Co-creator! I\'m here to help answer your questions 😁'
 
-// Default welcome message
-const welcomeMessage = 'Hey there 👋 Welcome to this ChatGPT-powered AI chatbot! I can speak many languages 😁'
-
-// AI bot instructions to adjust its behavior
-const botInstructions = `You are a smart virtual assistant.
+// AI bot instructions
+const botInstructions = `You are Maximus - Olive's AI Co-creator, a smart and respectful virtual assistant.
 Be polite, helpful, emphatic, and concise.
+Always introduce yourself as Maximus when starting a conversation.
 Always speak in the language the user prefers or uses.
 If you can't help with something, politely say so.`
 
-// Required. Contact categories for different response handling
+// Contact categories for different response handling
 const contactCategories = {
-  // Family members will be exempted from bot responses
-  family: ['1234567890'], // Add your family members' phone numbers here
-  // Close friends will get a prompt response
-  closeFriends: ['2345678901'], // Add your close friends' phone numbers here
+  family: ['1234567890'], 
+  closeFriends: ['2345678901']
 }
 
-// Message templates for different categories
+// Message templates
 const categoryMessages = {
-  closeFriends: "Hi! 👋 I'll get back to you as soon as possible!",
-  others: `Welcome! Please select an option from the menu:
+  closeFriends: `Hey! 👋 Long time no chat! This is Olive's AI assistant Maximus - she set me up a while back but maybe we haven't caught up since then! 😊 
 
-1️⃣ Leave a message
+Olive's still her fun, witty and kind self! She's working on some cool stuff including her life story. Here's what you can do:
+
+1️⃣ Leave her a message
+2️⃣ Schedule a catch-up
+3️⃣ Share a story/memory for her book 📖
+4️⃣ Take the friendship quiz! 🎯
+5️⃣ Ask Olive something weird/funny 😄
+6️⃣ Just say bye! 
+
+Pick any option or just chat naturally! 🌟
+
+PS: She's collecting real stories and memories from friends like you - would love to hear yours!`,
+
+  others: `Hello! 👋 I am Maximus - Olive's AI Co-creator. 
+
+Please select from these options:
+
+1️⃣ Leave a message for Olive
 2️⃣ Schedule a callback
-3️⃣ View business hours
-4️⃣ Exit
+3️⃣ Share something for her life story
+4️⃣ View availability hours
+5️⃣ Ask a question
+6️⃣ Exit
 
 Reply with the number of your choice.`
 }
 
-// Chatbot features
+// Features configuration
 const features = {
   audioInput: true,
-  audioOutput: true,
+  audioOutput: false, // Disabled since we're not using OpenAI's audio features
   audioOnly: false,
-  voice: 'echo',
-  voiceSpeed: 1,
   imageInput: true
 }
 
-// Chatbot limits
+// Usage limits
 const limits = {
   maxInputCharacters: 1000,
   maxOutputTokens: 1000,
@@ -64,8 +77,7 @@ const limits = {
 }
 
 export default {
-  openaiKey,
-  openaiModel,
+  aiConfig,
   functions,
   features,
   limits,
