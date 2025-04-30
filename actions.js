@@ -1,13 +1,13 @@
 import fs from 'fs'
 import axios from 'axios'
-import OpenAI from 'openai'
 import config from './config.js'
-import { state, cache, cacheTTL } from './store.js'
+import { state } from './store.js'
 
-// Initialize OpenAI client
-const ai = new OpenAI({ apiKey: config.openaiKey })
+// Simple in-memory cache implementation
+const localCache = new Map()
+const LOCAL_CACHE_TTL = 3600 * 1000 // 1 hour in milliseconds
 
-// Base URL API endpoint. Do not edit!
+// Base URL API endpoint
 const API_URL = config.apiBaseUrl
 
 // Function to send a message using the Wassenger API
@@ -39,12 +39,12 @@ export async function sendMessage ({ phone, message, media, device, ...fields })
 }
 
 export async function pullMembers (device) {
-  if (cache.members && +cache.members.time && (Date.now() - +cache.members.time) < cacheTTL) {
-    return cache.members.data
+  if (localCache.has('members') && (Date.now() - localCache.get('members').time) < LOCAL_CACHE_TTL) {
+    return localCache.get('members').data
   }
   const url = `${API_URL}/devices/${device.id}/team`
   const { data: members } = await axios.get(url, { headers: { Authorization: config.apiKey } })
-  cache.members = { data: members, time: Date.now() }
+  localCache.set('members', { data: members, time: Date.now() })
   return members
 }
 
@@ -62,7 +62,7 @@ export async function validateMembers (device, members) {
 }
 
 export async function createLabels (device) {
-  const labels = cache.labels.data || []
+  const labels = localCache.get('labels')?.data || []
   const requiredLabels = (config.setLabelsOnUserAssignment || []).concat(config.setLabelsOnBotChats || [])
   const missingLabels = requiredLabels.filter(label => labels.every(l => l.name !== label))
   for (const label of missingLabels) {
@@ -91,12 +91,12 @@ export async function createLabels (device) {
 }
 
 export async function pullLabels (device, { force } = {}) {
-  if (!force && cache.labels && +cache.labels.time && (Date.now() - +cache.labels.time) < cacheTTL) {
-    return cache.labels.data
+  if (!force && localCache.has('labels') && (Date.now() - localCache.get('labels').time) < LOCAL_CACHE_TTL) {
+    return localCache.get('labels').data
   }
   const url = `${API_URL}/devices/${device.id}/labels`
   const { data: labels } = await axios.get(url, { headers: { Authorization: config.apiKey } })
-  cache.labels = { data: labels, time: Date.now() }
+  localCache.set('labels', { data: labels, time: Date.now() })
   return labels
 }
 
@@ -302,39 +302,8 @@ export async function registerWebhook (tunnel, device) {
 }
 
 export async function transcribeAudio ({ message, device }) {
-  if (!message?.media?.id) {
-    return false
-  }
-
-  try {
-    const url = `${API_URL}/chat/${device.id}/files/${message.media.id}/download`
-    const response = await axios.get(url, {
-      headers: { Authorization: config.apiKey },
-      responseType: 'stream'
-    })
-    if (response.status !== 200) {
-      return false
-    }
-
-    const tmpFile = `${message.media.id}.mp3`
-    await new Promise((resolve, reject) => {
-      const writer = fs.createWriteStream(tmpFile)
-      response.data.pipe(writer)
-      writer.on('finish', () => resolve())
-      writer.on('error', reject)
-    })
-
-    const transcription = await ai.audio.transcriptions.create({
-      file: fs.createReadStream(tmpFile),
-      model: 'whisper-1',
-      response_format: 'text'
-    })
-    await fs.promises.unlink(tmpFile)
-    return transcription
-  } catch (err) {
-    console.error('[error] failed to transcribe audio:', message.fromNumber, message.media.id, err.message)
-    return false
-  }
+  console.log('Audio transcription not implemented with Llama yet')
+  return false
 }
 
 export async function sendTypingState ({ data, device, action }) {

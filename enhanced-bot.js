@@ -49,13 +49,13 @@ async function handleQuiz(chat, category) {
   const state = userStates.get(chat.fromNumber) || { quizIndex: 0, answers: [] }
   
   if (state.quizIndex < questions.length) {
-    await chat.sendMessage(questions[state.quizIndex])
+    await actions.sendMessage({ phone: chat.fromNumber, message: questions[state.quizIndex] })
     state.quizIndex++
     userStates.set(chat.fromNumber, state)
   } else {
     // Quiz completed
     const summary = `Thank you for completing the quiz! Here's a summary of your answers:\n\n${state.answers.join('\n\n')}`
-    await chat.sendMessage(summary)
+    await actions.sendMessage({ phone: chat.fromNumber, message: summary })
     userStates.delete(chat.fromNumber)
   }
 }
@@ -64,12 +64,12 @@ async function handleQuiz(chat, category) {
 async function handleTellOlive(chat, message) {
   const validation = await validateMessage(message)
   if (!validation.valid) {
-    await chat.sendMessage(validation.reason)
+    await actions.sendMessage({ phone: chat.fromNumber, message: validation.reason })
     return
   }
 
   const response = `Thank you for sharing this heartfelt message. Olive will cherish this. Would you like to hear what Olive would say to you? (Reply with "yes" or "no")`
-  await chat.sendMessage(response)
+  await actions.sendMessage({ phone: chat.fromNumber, message: response })
   userStates.set(chat.fromNumber, { waitingForOliveResponse: true, message })
 }
 
@@ -93,7 +93,7 @@ export async function processMessage({ data, device } = {}) {
   // Handle unsaved numbers
   if (category === 'strangers' && !userState.introduced) {
     if (!userState.waitingForIntroduction) {
-      await chat.sendMessage(config.categoryMessages.strangers)
+      await actions.sendMessage({ phone: chat.fromNumber, message: config.categoryMessages.strangers })
       userState.waitingForIntroduction = true
       userStates.set(chat.fromNumber, userState)
       return
@@ -107,7 +107,7 @@ export async function processMessage({ data, device } = {}) {
       userState.email = email
       userState.reason = reason
       userStates.set(chat.fromNumber, userState)
-      await chat.sendMessage('Thank you for introducing yourself! You can now leave your message.')
+      await actions.sendMessage({ phone: chat.fromNumber, message: 'Thank you for introducing yourself! You can now leave your message.' })
       return
     }
   }
@@ -117,26 +117,26 @@ export async function processMessage({ data, device } = {}) {
     const option = parseInt(body)
     switch (option) {
       case 1: // Leave message
-        await chat.sendMessage('Please write your message. It should be at least 100 characters long and genuine.')
+        await actions.sendMessage({ phone: chat.fromNumber, message: 'Please write your message. It should be at least 100 characters long and genuine.' })
         userState.waitingForMessage = true
         break
       case 2: // Schedule catch-up
-        await chat.sendMessage('Please suggest a date and time for the catch-up.')
+        await actions.sendMessage({ phone: chat.fromNumber, message: 'Please suggest a date and time for the catch-up.' })
         userState.waitingForSchedule = true
         break
       case 3: // Share memory
-        await chat.sendMessage('Please share your memory. Make it detailed and heartfelt.')
+        await actions.sendMessage({ phone: chat.fromNumber, message: 'Please share your memory. Make it detailed and heartfelt.' })
         userState.waitingForMemory = true
         break
       case 4: // Take quiz
         await handleQuiz(chat, category)
         break
       case 5: // Tell Olive something
-        await chat.sendMessage('What would you like to tell Olive? Make it meaningful and from the heart.')
+        await actions.sendMessage({ phone: chat.fromNumber, message: 'What would you like to tell Olive? Make it meaningful and from the heart.' })
         userState.waitingForOliveMessage = true
         break
       case 6: // Exit
-        await chat.sendMessage('Thank you for chatting! Have a great day! 👋')
+        await actions.sendMessage({ phone: chat.fromNumber, message: 'Thank you for chatting! Have a great day! 👋' })
         userStates.delete(chat.fromNumber)
         return
     }
@@ -148,21 +148,21 @@ export async function processMessage({ data, device } = {}) {
   if (userState.waitingForMessage || userState.waitingForMemory || userState.waitingForOliveMessage) {
     const validation = await validateMessage(body)
     if (!validation.valid) {
-      await chat.sendMessage(validation.reason)
+      await actions.sendMessage({ phone: chat.fromNumber, message: validation.reason })
       return
     }
 
     if (userState.waitingForOliveMessage) {
       await handleTellOlive(chat, body)
     } else {
-      await chat.sendMessage('Thank you for your message! Olive will get back to you soon.')
+      await actions.sendMessage({ phone: chat.fromNumber, message: 'Thank you for your message! Olive will get back to you soon.' })
     }
     userStates.delete(chat.fromNumber)
     return
   }
 
   // Default response
-  await chat.sendMessage(config.categoryMessages[category])
+  await actions.sendMessage({ phone: chat.fromNumber, message: config.categoryMessages[category] })
 }
 
 // Helper function to determine if a message can be replied to
@@ -224,4 +224,4 @@ function canReply({ data, device }) {
   }
 
   return true
-} 
+}

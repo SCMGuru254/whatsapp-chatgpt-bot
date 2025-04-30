@@ -2,7 +2,6 @@ import path from 'path'
 import fs from 'fs/promises'
 import { createReadStream } from 'fs'
 import express from 'express'
-import bodyParser from 'body-parser'
 import config from './config.js'
 import { processMessage } from './enhanced-bot.js'
 import { Client, LocalAuth } from 'whatsapp-web.js'
@@ -13,7 +12,7 @@ import * as actions from './actions.js'
 const app = express()
 
 // Middleware to parse incoming request bodies
-app.use(bodyParser.json())
+app.use(express.json())
 
 // Initialize WhatsApp client
 const client = new Client({
