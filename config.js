@@ -35,14 +35,14 @@ const messageValidation = {
 
 // Message templates
 const categoryMessages = {
-  closeFriends: `Hey! 👋 This is Olive's AI assistant Maximus. 
+  closeFriends: `Hey! 👋 This is Olive's AI assistant Maximus. Iknow right? Hahaha.. Well, I'm definitely not Olive, she is just being non-whatsppy and honestly, not opening whatsapp anytime soon, so if you know where to find her incase its personal and urgent, do that, or call, hopefully she will answer..fingers crossed.Well she is slowly moving away from online world, and well, this is step one. So, feel free to connect.
 
 What's on your mind?
-1️⃣ Leave a message
-2️⃣ Schedule a catch-up
+1️⃣ Leave a message - a hi only will be deleted, so drop the messege, I will forward it to the vault
+2️⃣ Schedule a catch-up, we know Olive likes being indoosy, so good timelines please
 3️⃣ Share a memory
 4️⃣ Take the friendship quiz
-5️⃣ Tell Olive something special
+5️⃣ Tell Olive something , lets do this, you know the I wish I said this or that? Lets be proactive..the good, bad, ugly or awesome, share it while we still here.
 6️⃣ Exit
 
 Choose an option or just chat naturally!`,
@@ -77,9 +77,9 @@ Your message will be reviewed for authenticity. Messages should be genuine and a
 // Quiz questions
 const quizQuestions = {
   friendship: [
-    "What's your favorite memory with Olive?",
-    "What quality do you admire most about Olive?",
-    "How has Olive impacted your life?",
+    "What's your favorite memory with Olive, and why? got evidence like pictures etc that we need to bury or celebrate?",
+    "What quality do you admire or not admire most about Olive?",
+    "How has Olive impacted your life - ?",
     "What's something you've always wanted to tell Olive?",
     "If you could describe Olive in three words, what would they be?"
   ],
