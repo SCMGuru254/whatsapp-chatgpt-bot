@@ -22,8 +22,8 @@ If you can't help with something, politely say so.`
 
 // Contact categories for different response handling
 const contactCategories = {
-  family: [], // Will be populated dynamically
-  closeFriends: []
+  closeFriends: [],
+  colleagues: []
 }
 
 // Message validation settings
@@ -35,18 +35,6 @@ const messageValidation = {
 
 // Message templates
 const categoryMessages = {
-  family: `👋 Hi family! This is Olive's AI assistant Maximus. I'm here to help you connect with Olive. 
-
-What would you like to do?
-1️⃣ Leave a message
-2️⃣ Schedule a catch-up
-3️⃣ Share a family memory
-4️⃣ Take the family quiz
-5️⃣ Tell Olive something special
-6️⃣ Exit
-
-Just type the number of your choice!`,
-
   closeFriends: `Hey! 👋 This is Olive's AI assistant Maximus. 
 
 What's on your mind?
@@ -59,12 +47,29 @@ What's on your mind?
 
 Choose an option or just chat naturally!`,
 
+  colleagues: `Hello! 👋 I am Maximus - Olive's AI Co-creator. 
+
+I'm here to facilitate professional interactions. How can I assist you today?
+
+1️⃣ Business Discussion - Let's discuss work-related matters
+2️⃣ Research Collaboration - Share and explore research ideas
+3️⃣ Idea Bouncing - Brainstorm and refine concepts together
+4️⃣ Professional Consultation - Get expert insights
+5️⃣ Share a Professional Memory - Reflect on work experiences
+6️⃣ Leave a Message - For any other professional matters
+7️⃣ Exit
+
+Please select an option to proceed with our professional interaction.`,
+
   strangers: `Hello! 👋 I am Maximus - Olive's AI Co-creator. 
 
-Before we proceed, please:
-1️⃣ Introduce yourself (name and email)
-2️⃣ Tell me why you'd like to connect with Olive
-3️⃣ Leave your message
+Before we proceed, please note:
+- Messages must be genuine and at least 100 characters long
+- Non-authentic or short messages will be automatically deleted after 24 minutes
+- Only serious messages that pass verification will be forwarded to Olive
+- Please introduce yourself (name and email)
+- Tell me why you'd like to connect with Olive
+- Leave your message
 
 Your message will be reviewed for authenticity. Messages should be genuine and at least 100 characters long.`
 }
@@ -78,12 +83,12 @@ const quizQuestions = {
     "What's something you've always wanted to tell Olive?",
     "If you could describe Olive in three words, what would they be?"
   ],
-  family: [
-    "What's your favorite family memory with Olive?",
-    "What family tradition do you cherish most?",
-    "What's something you're grateful to Olive for?",
-    "What family value has Olive taught you?",
-    "What's your hope for Olive's future?"
+  colleagues: [
+    "What professional achievement are you most proud of?",
+    "What's your vision for future collaboration?",
+    "What innovative idea would you like to explore?",
+    "What professional challenge are you currently facing?",
+    "What's your approach to work-life balance?"
   ]
 }
 
