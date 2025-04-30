@@ -4,7 +4,9 @@ import { createReadStream } from 'fs'
 import express from 'express'
 import bodyParser from 'body-parser'
 import config from './config.js'
-import * as bot from './bot.js'
+import { processMessage } from './enhanced-bot.js'
+import { Client, LocalAuth } from 'whatsapp-web.js'
+import qrcode from 'qrcode-terminal'
 import * as actions from './actions.js'
 
 // Create web server
@@ -12,6 +14,49 @@ const app = express()
 
 // Middleware to parse incoming request bodies
 app.use(bodyParser.json())
+
+// Initialize WhatsApp client
+const client = new Client({
+  authStrategy: new LocalAuth(),
+  puppeteer: {
+    args: ['--no-sandbox']
+  }
+})
+
+// Generate QR Code
+client.on('qr', (qr) => {
+  qrcode.generate(qr, { small: true })
+  console.log('QR Code generated! Please scan with your phone.')
+})
+
+// Handle client ready
+client.on('ready', () => {
+  console.log('Client is ready!')
+})
+
+// Handle incoming messages
+client.on('message', async (message) => {
+  try {
+    await processMessage({
+      data: {
+        chat: {
+          fromNumber: message.from,
+          type: message.isGroup ? 'group' : 'chat',
+          contact: {
+            phone: message.from,
+            status: message.isBlocked ? 'blocked' : 'active'
+          }
+        },
+        body: message.body
+      },
+      device: {
+        phone: client.info.wid._serialized
+      }
+    })
+  } catch (error) {
+    console.error('Error processing message:', error)
+  }
+})
 
 // Index route
 app.get('/', (req, res) => {
@@ -49,7 +94,22 @@ app.post('/webhook', (req, res) => {
   res.send({ ok: true })
 
   // Process message response in background
-  bot.processMessage(body).catch(err => {
+  processMessage({
+    data: {
+      chat: {
+        fromNumber: body.data.fromNumber,
+        type: body.data.isGroup ? 'group' : 'chat',
+        contact: {
+          phone: body.data.fromNumber,
+          status: body.data.isBlocked ? 'blocked' : 'active'
+        }
+      },
+      body: body.data.body
+    },
+    device: {
+      phone: client.info.wid._serialized
+    }
+  }).catch(err => {
     console.error('[error] failed to process inbound message:', body.id, body.data.fromNumber, body.data.body, err)
   })
 })
@@ -141,6 +201,13 @@ app.use((err, req, res, next) => {
   res.status(+err.status || 500).send({
     message: `Unexpected error: ${err.message}`
   })
+})
+
+// Start the server
+const PORT = process.env.PORT || 3000
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`)
+  client.initialize()
 })
 
 export default app

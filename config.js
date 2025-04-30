@@ -22,39 +22,69 @@ If you can't help with something, politely say so.`
 
 // Contact categories for different response handling
 const contactCategories = {
-  family: ['1234567890'], 
-  closeFriends: ['2345678901']
+  family: [], // Will be populated dynamically
+  closeFriends: []
+}
+
+// Message validation settings
+const messageValidation = {
+  minLength: 100,
+  authenticityThreshold: 0.6,
+  maxRetries: 3
 }
 
 // Message templates
 const categoryMessages = {
-  closeFriends: `Hey! 👋 Long time no chat! This is Olive's AI assistant Maximus - she set me up a while back but maybe we haven't caught up since then! 😊 
+  family: `👋 Hi family! This is Olive's AI assistant Maximus. I'm here to help you connect with Olive. 
 
-Olive's still her fun, witty and kind self! She's working on some cool stuff including her life story. Here's what you can do:
-
-1️⃣ Leave her a message
+What would you like to do?
+1️⃣ Leave a message
 2️⃣ Schedule a catch-up
-3️⃣ Share a story/memory for her book 📖
-4️⃣ Take the friendship quiz! 🎯
-5️⃣ Ask Olive something weird/funny 😄
-6️⃣ Just say bye! 
-
-Pick any option or just chat naturally! 🌟
-
-PS: She's collecting real stories and memories from friends like you - would love to hear yours!`,
-
-  others: `Hello! 👋 I am Maximus - Olive's AI Co-creator. 
-
-Please select from these options:
-
-1️⃣ Leave a message for Olive
-2️⃣ Schedule a callback
-3️⃣ Share something for her life story
-4️⃣ View availability hours
-5️⃣ Ask a question
+3️⃣ Share a family memory
+4️⃣ Take the family quiz
+5️⃣ Tell Olive something special
 6️⃣ Exit
 
-Reply with the number of your choice.`
+Just type the number of your choice!`,
+
+  closeFriends: `Hey! 👋 This is Olive's AI assistant Maximus. 
+
+What's on your mind?
+1️⃣ Leave a message
+2️⃣ Schedule a catch-up
+3️⃣ Share a memory
+4️⃣ Take the friendship quiz
+5️⃣ Tell Olive something special
+6️⃣ Exit
+
+Choose an option or just chat naturally!`,
+
+  strangers: `Hello! 👋 I am Maximus - Olive's AI Co-creator. 
+
+Before we proceed, please:
+1️⃣ Introduce yourself (name and email)
+2️⃣ Tell me why you'd like to connect with Olive
+3️⃣ Leave your message
+
+Your message will be reviewed for authenticity. Messages should be genuine and at least 100 characters long.`
+}
+
+// Quiz questions
+const quizQuestions = {
+  friendship: [
+    "What's your favorite memory with Olive?",
+    "What quality do you admire most about Olive?",
+    "How has Olive impacted your life?",
+    "What's something you've always wanted to tell Olive?",
+    "If you could describe Olive in three words, what would they be?"
+  ],
+  family: [
+    "What's your favorite family memory with Olive?",
+    "What family tradition do you cherish most?",
+    "What's something you're grateful to Olive for?",
+    "What family value has Olive taught you?",
+    "What's your hope for Olive's future?"
+  ]
 }
 
 // Features configuration
@@ -85,5 +115,7 @@ export default {
   welcomeMessage,
   botInstructions,
   contactCategories,
-  categoryMessages
+  categoryMessages,
+  messageValidation,
+  quizQuestions
 }

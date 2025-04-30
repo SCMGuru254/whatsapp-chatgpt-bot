@@ -8,6 +8,74 @@ import * as actions from './actions.js'
 // Initialize OpenAI client
 const ai = new OpenAI({ apiKey: config.openaiKey })
 
+// User state management
+const userStates = new Map()
+
+// Message validation function
+async function validateMessage(message) {
+  if (message.length < config.messageValidation.minLength) {
+    return {
+      valid: false,
+      reason: 'Message too short. Please write at least 100 characters.'
+    }
+  }
+
+  // Use AI to assess message authenticity
+  const response = await ai.chat.completions.create({
+    model: "gpt-3.5-turbo",
+    messages: [
+      {
+        role: "system",
+        content: "Rate the authenticity of this message on a scale of 0-1. Consider factors like emotional depth, personal connection, and genuine expression."
+      },
+      {
+        role: "user",
+        content: message
+      }
+    ],
+    temperature: 0.3
+  })
+
+  const authenticityScore = parseFloat(response.choices[0].message.content)
+  return {
+    valid: authenticityScore >= config.messageValidation.authenticityThreshold,
+    score: authenticityScore,
+    reason: authenticityScore < config.messageValidation.authenticityThreshold 
+      ? 'Message seems insincere. Please write a more genuine message.' 
+      : null
+  }
+}
+
+// Handle quiz functionality
+async function handleQuiz(chat, category) {
+  const questions = config.quizQuestions[category]
+  const state = userStates.get(chat.fromNumber) || { quizIndex: 0, answers: [] }
+  
+  if (state.quizIndex < questions.length) {
+    await chat.sendMessage(questions[state.quizIndex])
+    state.quizIndex++
+    userStates.set(chat.fromNumber, state)
+  } else {
+    // Quiz completed
+    const summary = `Thank you for completing the quiz! Here's a summary of your answers:\n\n${state.answers.join('\n\n')}`
+    await chat.sendMessage(summary)
+    userStates.delete(chat.fromNumber)
+  }
+}
+
+// Handle "Tell Olive something" feature
+async function handleTellOlive(chat, message) {
+  const validation = await validateMessage(message)
+  if (!validation.valid) {
+    await chat.sendMessage(validation.reason)
+    return
+  }
+
+  const response = `Thank you for sharing this heartfelt message. Olive will cherish this. Would you like to hear what Olive would say to you? (Reply with "yes" or "no")`
+  await chat.sendMessage(response)
+  userStates.set(chat.fromNumber, { waitingForOliveResponse: true, message })
+}
+
 // Determine if a given inbound message can be replied by the AI bot
 function canReply ({ data, device }) {
   const { chat } = data
@@ -235,266 +303,92 @@ async function handleMenuResponse(body, reply) {
 
 // Process message received from the user on every new inbound webhook event
 export async function processMessage ({ data, device } = {}) {
-  // Can reply to this message?
   if (!canReply({ data, device })) {
-    return console.log('[info] Skip message - chat is not eligible to reply due to active filters:', data.fromNumber, data.date, data.body)
+    return
   }
 
-  const { chat } = data
+  const { chat, body } = data
+  const userState = userStates.get(chat.fromNumber) || {}
 
-  // Check contact category
-  if (isFamily(chat.fromNumber, config)) {
-    return console.log('[info] Skip message - sender is in family category:', chat.fromNumber);
+  // Handle user category
+  let category = 'strangers'
+  if (config.contactCategories.family.includes(chat.fromNumber)) {
+    category = 'family'
+  } else if (config.contactCategories.closeFriends.includes(chat.fromNumber)) {
+    category = 'closeFriends'
   }
 
-  // Handle close friends category
-  if (isCloseFriend(chat.fromNumber, config)) {
-    const reply = replyMessage({ data, device });
-    await reply({ message: config.categoryMessages.closeFriends });
-    return;
+  // Handle unsaved numbers
+  if (category === 'strangers' && !userState.introduced) {
+    if (!userState.waitingForIntroduction) {
+      await chat.sendMessage(config.categoryMessages.strangers)
+      userState.waitingForIntroduction = true
+      userStates.set(chat.fromNumber, userState)
+      return
+    }
+
+    // Process introduction
+    const [name, email, reason] = body.split('\n')
+    if (name && email && reason) {
+      userState.introduced = true
+      userState.name = name
+      userState.email = email
+      userState.reason = reason
+      userStates.set(chat.fromNumber, userState)
+      await chat.sendMessage('Thank you for introducing yourself! You can now leave your message.')
+      return
+    }
   }
 
-  // Chat has enough messages quota
-  if (!hasChatMessagesQuota(chat)) {
-    console.log('[info] Skip message - chat has reached the maximum messages quota:', data.fromNumber)
-    return await updateChatOnMessagesQuota({ data, device })
+  // Handle menu options
+  if (body.match(/^[1-6]$/)) {
+    const option = parseInt(body)
+    switch (option) {
+      case 1: // Leave message
+        await chat.sendMessage('Please write your message. It should be at least 100 characters long and genuine.')
+        userState.waitingForMessage = true
+        break
+      case 2: // Schedule catch-up
+        await chat.sendMessage('Please suggest a date and time for the catch-up.')
+        userState.waitingForSchedule = true
+        break
+      case 3: // Share memory
+        await chat.sendMessage('Please share your memory. Make it detailed and heartfelt.')
+        userState.waitingForMemory = true
+        break
+      case 4: // Take quiz
+        await handleQuiz(chat, category)
+        break
+      case 5: // Tell Olive something
+        await chat.sendMessage('What would you like to tell Olive? Make it meaningful and from the heart.')
+        userState.waitingForOliveMessage = true
+        break
+      case 6: // Exit
+        await chat.sendMessage('Thank you for chatting! Have a great day! 👋')
+        userStates.delete(chat.fromNumber)
+        return
+    }
+    userStates.set(chat.fromNumber, userState)
+    return
   }
 
-  // Update chat status metadata if messages quota is not exceeded
-  if (hasChatMetadataQuotaExceeded(chat)) {
-    actions.updateChatMetadata({ data, device, metadata: [{ key: 'bot:chatgpt:status', value: 'active' }] })
-      .catch(err => console.error('[error] failed to update chat metadata:', data.chat.id, err.message))
-  }
+  // Handle waiting states
+  if (userState.waitingForMessage || userState.waitingForMemory || userState.waitingForOliveMessage) {
+    const validation = await validateMessage(body)
+    if (!validation.valid) {
+      await chat.sendMessage(validation.reason)
+      return
+    }
 
-  const reply = replyMessage({ data, device });
-  const body = data?.body?.trim();
-
-  // Handle menu responses for other contacts
-  if (body && /^[1-4]$/.test(body)) {
-    const handled = await handleMenuResponse(body, reply);
-    if (handled) return;
-  }
-
-  // Show menu for first message or invalid option from other contacts
-  if (!isFamily(chat.fromNumber, config) && !isCloseFriend(chat.fromNumber, config)) {
-    await reply({ message: config.categoryMessages.others });
-    return;
-  }
-
-  // If audio message, transcribe it to text
-  if (data.type === 'audio') {
-    const noAudioMessage = config.templateMessages.noAudioAccepted || 'Audio messages are not supported: gently ask the user to send text messages only.'
-    if (config.features.audioInput && +data.media.meta?.duration <= config.limits.maxAudioDuration) {
-      const transcription = await actions.transcribeAudio({ message: data, device })
-      if (transcription) {
-        data.body = transcription
-      } else {
-        console.error('[error] failed to transcribe audio message:', data.fromNumber, data.date, data.media.id)
-        data.body = noAudioMessage
-      }
+    if (userState.waitingForOliveMessage) {
+      await handleTellOlive(chat, body)
     } else {
-      // console.log('[info] skip message - audio input processing is disabled, enable it on config.js:', data.fromNumber)
-      data.body = noAudioMessage
+      await chat.sendMessage('Thank you for your message! Olive will get back to you soon.')
     }
+    userStates.delete(chat.fromNumber)
+    return
   }
 
-  // Extract input body per message type
-  if (data.type === 'video' && !data.body) {
-    data.body = 'Video message cannot be processed. Send a text message.'
-  }
-  if (data.type === 'document' && !data.body) {
-    data.body = 'Document message cannot be processed. Send a text message.'
-  }
-  if (data.type === 'location' && !data.body) {
-    data.body = `Location: ${data.location.name || ''} ${data.location.address || ''}`
-  }
-  if (data.type === 'poll' && !data.body) {
-    data.body = `Poll: ${data.poll.name || 'unamed'}\n${data.poll.options.map(x => '-' + x.name).join('\n')}`
-  }
-  if (data.type === 'event' && !data.body) {
-    data.body = [
-      `Meeting event: ${data.event.name || 'unamed'}`,
-      `Description: ${data.event.description || 'no description'}`,
-      `Date: ${data.event.date || 'no date'}`,
-      `Location: ${data.event.location || 'undefined location'}``Call link: ${data.event.link || 'no call link'}`
-    ].join('\n')
-  }
-  if (data.type === 'contacts') {
-    data.body = data.contacts.map(x => `- Contact card: ${x.formattedName || x.name || x.firstName || ''} - Phone: ${x.phones ? x.phones.map(x => x.number || x.waid) : ''}}`).join('\n')
-  }
-
-  // User message input
-  const body = data?.body?.trim().slice(0, Math.min(config.limits.maxInputCharacters, 10000))
-  console.log('[info] New inbound message received:', chat.id, data.type, body || '<empty message>')
-
-  // If input message is audio, reply with an audio message, unless features.audioOutput is false
-  const useAudio = data.type === 'audio'
-
-  // Create partial function to reply the chat
-  const reply = replyMessage({ data, device, useAudio })
-
-  if (!body) {
-    if (data.type !== 'image' || (data.type === 'image' && !config.features.imageInput) || (data.type === 'image' && config.features.imageInput && data.media.size > config.limits.maxImageSize)) {
-      // Default to unknown command response
-      const unknownCommand = `${config.unknownCommandMessage}\n\n${config.defaultMessage}`
-      await reply({ message: unknownCommand }, { text: true })
-    }
-  }
-
-  // Assign the chat to an random agent
-  if (/^human|person|help|stop$/i.test(body) || /^human/i.test(body)) {
-    actions.assignChatToAgent({ data, device, force: true }).catch(err => {
-      console.error('[error] failed to assign chat to user:', data.chat.id, err.message)
-    })
-    const message = config.templateMessages.chatAssigned || 'You will be contact shortly by someone from our team. Thank you for your patience.'
-    return await reply({ message }, { text: true })
-  }
-
-  // Generate response using AI
-  if (!state[data.chat.id]) {
-    console.log('[info] fetch previous messages history for chat:', data.chat.id)
-    await actions.pullChatMessages({ data, device })
-  }
-
-  // Chat messages history
-  const chatMessages = state[data.chat.id] = state[data.chat.id] || {}
-
-  // Chat configuration
-  const { apiBaseUrl } = config
-
-  // Compose chat previous messages to context awareness better AI responses
-  const previousMessages = Object.values(chatMessages)
-    .sort((a, b) => +new Date(b.date) - +new Date(a.date))
-    .slice(0, 40)
-    .reverse()
-    .map(message => {
-      if (message.flow === 'inbound' && !message.body && message.type === 'image' && config.features.imageInput && message.media.size <= config.limits.maxImageSize) {
-        const url = apiBaseUrl + message.media.links.download.slice(3) + '?token=' + config.apiKey
-        return {
-          role: 'user',
-          content: [{
-            type: 'image_url',
-            image_url: { url }
-          }, message.media.caption ? { type: 'text', text: message.media.caption } : null].filter(x => x)
-        }
-      } else {
-        return {
-          role: message.flow === 'inbound' ? 'user' : (message.role || 'assistant'),
-          content: message.body
-        }
-      }
-    })
-    .filter(message => message.content).slice(-(+config.limits.chatHistoryLimit || 20))
-
-  const messages = [
-    { role: 'system', content: config.botInstructions },
-    ...previousMessages
-  ]
-
-  const lastMessage = messages[messages.length - 1]
-  if (lastMessage.role !== 'user' || lastMessage.content !== body) {
-    if (config.features.imageInput && data.type === 'image' && !data.body && data.media.size <= config.limits.maxImageSize) {
-      const url = apiBaseUrl + data.media.links.download.slice(3) + '?token=' + config.apiKey
-      messages.push({
-        role: 'user',
-        content: [
-          {
-            type: 'image_url',
-            image_url: { url }
-          },
-          data.media.caption ? { type: 'text', text: data.media.caption } : null
-        ].filter(x => x)
-      })
-    } else {
-      messages.push({ role: 'user', content: body })
-    }
-  }
-
-  // Add tool functions to the AI model, if available
-  const tools = (config.functions || []).filter(x => x && x.name).map(({ name, description, parameters, strict }) => (
-    { type: 'function', function: { name, description, parameters, strict } }
-  ))
-
-  // Generate response using AI
-  let completion = await ai.chat.completions.create({
-    tools,
-    messages,
-    model: config.openaiModel,
-    max_completion_tokens: config.limits.maxOutputTokens,
-    temperature: config.inferenceParams.temperature,
-    user: `${device.id}_${chat.id}`
-  })
-
-  // Reply with unknown / default response on invalid/error
-  if (!completion.choices?.length) {
-    const unknownCommand = `${config.unknownCommandMessage}\n\n${config.defaultMessage}`
-    return await reply({ message: unknownCommand })
-  }
-
-  // Process tool function calls, if required by the AI model
-  const maxCalls = 10
-  let [response] = completion.choices
-  let count = 0
-  while (response?.message?.tool_calls?.length && count < maxCalls) {
-    count += 1
-
-    // If response is a function call, return the custom result
-    const responses = []
-
-    // Store tool calls in history
-    messages.push({ role: 'assistant', tool_calls: response.message.tool_calls })
-
-    // Call tool functions triggerd by the AI
-    const calls = response.message.tool_calls.filter(x => x.id && x.type === 'function')
-    for (const call of calls) {
-      const func = config.functions.find(x => x.name === call.function.name)
-      if (func && typeof func.run === 'function') {
-        const parameters = parseArguments(call.function.arguments)
-        console.log('[info] run function:', call.function.name, parameters)
-
-        // Run the function and get the response message
-        const message = await func.run({ parameters, response, data, device, messages })
-        if (message) {
-          responses.push({ role: 'tool', content: message, tool_call_id: call.id })
-        }
-      } else if (!func) {
-        console.error('[warning] missing function call in config.functions', call.function.name)
-      }
-    }
-
-    if (!responses.length) {
-      break
-    }
-
-    // Add tool responses to the chat history
-    messages.push(...responses)
-
-    // Generate a new response based on the tool functions responses
-    completion = await ai.chat.completions.create({
-      tools,
-      messages,
-      temperature: 0.2,
-      model: config.openaiModel,
-      user: `${device.id}_${chat.id}`
-    })
-
-    // Reply with unknown / default response on invalid/error
-    if (!completion.choices?.length) {
-      break
-    }
-    // Reply with unknown / default response on invalid/error
-    response = completion.choices[0]
-    if (!response || response.finish_reason === 'stop') {
-      break
-    }
-  }
-
-  // Reply with the AI generated response
-  if (completion.choices?.length) {
-    return await reply({ message: response?.message?.content || config.unknownCommandMessage })
-  }
-
-  // Unknown default response
-  const unknownCommand = `${config.unknownCommandMessage}\n\n${config.defaultMessage}`
-  await reply({ message: unknownCommand })
+  // Default response
+  await chat.sendMessage(config.categoryMessages[category])
 }

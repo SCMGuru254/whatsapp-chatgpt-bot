@@ -1,8 +1,115 @@
+# WhatsApp Llama 2 Bot
+
+A WhatsApp bot that uses Llama 2 (free and open-source AI model) to provide intelligent responses and manage different types of interactions based on user categories (family, close friends, and strangers).
+
+## Features
+
+- Different interaction modes for family, close friends, and strangers
+- Message validation and authenticity checking using Llama 2
+- Interactive quiz functionality
+- "Tell Olive something" feature for heartfelt messages
+- Dynamic family member management
+- QR code authentication
+- Responsive menu system
+
+## Installation
+
+1. Clone the repository:
+```bash
+git clone https://github.com/yourusername/whatsapp-chatgpt-bot.git
+cd whatsapp-chatgpt-bot
+```
+
+2. Install dependencies:
+```bash
+npm install
+```
+
+3. Download the Llama 2 model:
+```bash
+# Download the Llama 2 model (1.1B version for better performance)
+wget https://huggingface.co/TheBloke/Llama-2-7B-Chat-GGUF/resolve/main/llama-2-7b-chat.Q4_K_M.gguf -O models/llama-2-chat.gguf
+```
+
+4. Create a `.env` file with your OpenAI API key:
+```
+OPENAI_API_KEY=your_api_key_here
+```
+
+## Usage
+
+1. Start the bot:
+```bash
+npm start
+```
+
+2. Scan the QR code that appears in the terminal with your WhatsApp mobile app.
+
+3. The bot will automatically categorize users and provide appropriate responses based on their relationship with you.
+
+## User Categories
+
+### Family
+- Direct access to all features
+- Special family quiz
+- Priority message handling
+
+### Close Friends
+- Access to most features
+- Friendship quiz
+- More relaxed message validation
+
+### Strangers
+- Required to introduce themselves
+- Stricter message validation
+- Limited feature access
+
+## Features
+
+### Message Validation
+- Messages must be at least 100 characters long
+- AI-powered authenticity checking
+- Multiple retry attempts for failed validations
+
+### Quiz
+- Different quiz questions for family and friends
+- Interactive question-answer format
+- Summary of answers at the end
+
+### Tell Olive Something
+- Special feature for heartfelt messages
+- Option to receive Olive's response
+- High authenticity requirements
+
+## Configuration
+
+You can customize the bot's behavior by modifying the `config.js` file:
+
+- Message validation thresholds
+- Quiz questions
+- Category messages
+- Feature toggles
+
+## Security
+
+- Family numbers are managed through the bot interface
+- No hardcoded sensitive information
+- Message validation to prevent spam
+- Rate limiting for message processing
+
+## Contributing
+
+Feel free to submit issues and enhancement requests!
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
 ## WhatsApp ChatGPT-powered Multimodal AI Chatbot 🤖 🤖
 
 **Turn your WhatsApp number into a ChatGPT-powered multimodal AI chatbot in minutes with this tutorial using the [Wassenger API](https://wassenger.com).**
 
-[![Open in Codeflow](https://developer.stackblitz.com/img/open_in_codeflow.svg)](https:///pr.new/wassengerhq/whatsapp-chatgpt-bot)
+[![Open in Codeflow](https://developer.stackblitz.com/img/open_in_codeflow.svg)](:///pr.new/wassengerhq/whatsapp-chatgpt-bot)
 
 Run a customizable versatile text, audio and image WhatsApp-ready AI chatbot based on [GPT-4o](https://openai.com/index/hello-gpt-4o/) in minutes on your computer or server.
 Easily customize it to cover your own business use cases and integrate remote API, database or file data loading (RAG).
