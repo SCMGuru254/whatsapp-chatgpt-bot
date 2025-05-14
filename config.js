@@ -6,7 +6,8 @@ const aiConfig = {
   modelType: 'llama2',
   modelPath: './models/llama-2-chat.gguf', // Path to smaller 1.1B model
   temperature: 0.8, // Slightly higher temperature for more creative responses
-  maxLength: 500 // Reduced max length for faster responses
+  maxLength: 500, // Reduced max length for faster responses
+  tallyFormUrl: 'https://tally.so/r/w4q5Mo' // Tally form URL for user input
 }
 
 // Default messages
@@ -40,7 +41,7 @@ const categoryMessages = {
 What's on your mind?
 1️⃣ Leave a message - a hi only will be deleted, so drop the messege, I will forward it to the vault
 2️⃣ Schedule a catch-up, we know Olive likes being indoosy, so good timelines please
-3️⃣ Share a memory
+3️⃣ Share a memory - fill out our form: https://tally.so/r/w4q5Mo
 4️⃣ Take the friendship quiz
 5️⃣ Tell Olive something , lets do this, you know the I wish I said this or that? Lets be proactive..the good, bad, ugly or awesome, share it while we still here.
 6️⃣ Exit

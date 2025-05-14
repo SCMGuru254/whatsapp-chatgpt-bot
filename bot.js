@@ -71,7 +71,9 @@ async function handleTellOlive(chat, message) {
     return
   }
 
-  const response = `Thank you for sharing this heartfelt message. Olive will cherish this. Would you like to hear what Olive would say to you? (Reply with "yes" or "no")`
+  const response = `Thank you for sharing this heartfelt message. Olive will cherish this. Would you like to hear what Olive would say to you? (Reply with "yes" or "no")
+
+You can also share more thoughts using our online form: https://tally.so/r/w4q5Mo`
   await chat.sendMessage(response)
   userStates.set(chat.fromNumber, { waitingForOliveResponse: true, message })
 }

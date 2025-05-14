@@ -125,7 +125,7 @@ export async function processMessage({ data, device } = {}) {
         userState.waitingForSchedule = true
         break
       case 3: // Share memory
-        await actions.sendMessage({ phone: chat.fromNumber, message: 'Please share your memory. Make it detailed and heartfelt.' })
+        await actions.sendMessage({ phone: chat.fromNumber, message: 'Share a story or memory for Olive\'s life story collection using this form: https://tally.so/r/w4q5Mo' })
         userState.waitingForMemory = true
         break
       case 4: // Take quiz

@@ -1,6 +1,6 @@
-# WhatsApp Llama 2 Bot
+# WhatsApp Llama 2 Bot with Tally Form Integration
 
-A WhatsApp bot that uses Llama 2 (free and open-source AI model) to provide intelligent responses and manage different types of interactions based on user categories (family, close friends, and strangers).
+A WhatsApp bot that uses Llama 2 (free and open-source AI model) to provide intelligent responses and manage different types of interactions based on user categories (family, close friends, and strangers). Now with Tally form integration (`https://tally.so/r/w4q5Mo`) for user input and GitHub Pages deployment.
 
 ## Features
 
@@ -11,6 +11,8 @@ A WhatsApp bot that uses Llama 2 (free and open-source AI model) to provide inte
 - Dynamic family member management
 - QR code authentication
 - Responsive menu system
+- Tally form integration (`https://tally.so/r/w4q5Mo`) for user input
+- GitHub Pages deployment for free online hosting
 
 ## Installation
 
@@ -38,6 +40,8 @@ OPENAI_API_KEY=your_api_key_here
 
 ## Usage
 
+### Local Usage
+
 1. Start the bot:
 ```bash
 npm start
@@ -46,6 +50,34 @@ npm start
 2. Scan the QR code that appears in the terminal with your WhatsApp mobile app.
 
 3. The bot will automatically categorize users and provide appropriate responses based on their relationship with you.
+
+### Online Deployment with GitHub Pages
+
+1. Fork or clone this repository to your GitHub account.
+
+2. Configure GitHub Pages:
+   - Go to your repository on GitHub
+   - Click on "Settings"
+   - Scroll down to the "GitHub Pages" section
+   - Under "Source", select "main" branch and "/docs" folder
+   - Click "Save"
+
+3. Set up GitHub Secrets for your API keys:
+   - Go to your repository on GitHub
+   - Click on "Settings"
+   - Click on "Secrets and variables" → "Actions"
+   - Add your API keys as secrets
+
+4. Push changes to trigger deployment:
+```bash
+git add .
+git commit -m "Update bot configuration"
+git push origin main
+```
+
+5. Access your bot at `https://[your-username].github.io/whatsapp-chatgpt-bot/`
+
+6. The Tally form is integrated at `https://[your-username].github.io/whatsapp-chatgpt-bot/#form`
 
 ## User Categories
 
